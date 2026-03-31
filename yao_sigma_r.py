@@ -1,7 +1,9 @@
 import os
 import glob
+import math
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 import warnings
 from datetime import datetime
@@ -21,8 +23,6 @@ C3 = 21.589  # 对应 ln 的 1 次方系数
 C4 = -28.571  # 常数项
 
 # 【新增配置】：在这里填入 knowndata.csv 中 4 种 E 的准确列名
-# 根据您之前上传的截图，Pandas 读取同名列时可能会自动加后缀，如 'E(GPa)', 'E(GPa).1' 等
-# 请打开您的 CSV 文件确认真实表头，并替换下方的列表
 E_COLUMNS_TO_PROCESS = ['Er', 'Er_O&P', 'E*', 'E*_O&P']
 
 
@@ -40,9 +40,9 @@ def representative_stress_equation(sigma_r, C, Er):
     return right_side - (C / sigma_r)
 
 
-def calculate_sigma_r_multi():
+def calculate_yield_stress():
     print("=" * 70)
-    print("🚀 启动 CR-EMI 表征应力多模量并行求解引擎")
+    print("🚀 启动 CR-EMI 屈服强度 (n=0) 多模量并行验证引擎")
     print("=" * 70)
 
     # ==========================================================
@@ -59,6 +59,7 @@ def calculate_sigma_r_multi():
 
     known_data_path = os.path.join(data_dir, "knowndata.csv")
     output_csv_path = os.path.join(run_output_dir, "Calculated_Sigma_r_Multi_E_Results.csv")
+    plot_save_path = os.path.join(run_output_dir, "Yield_Strength_Comparison_Grid.png")
 
     # ==========================================================
     # 2. 智能检索最新生成的 C 值汇总表
@@ -116,6 +117,9 @@ def calculate_sigma_r_multi():
         print(f"当前 CSV 拥有的列名为: {list(df_known.columns)}")
         return
 
+    # 检查是否存在屈服强度验证列
+    has_yield_stress = 'sigma_y_m' in df_known.columns
+
     # ==========================================================
     # 4. 自动化数据融合 (Merge)
     # ==========================================================
@@ -171,10 +175,69 @@ def calculate_sigma_r_multi():
 
         print()
 
-        # ==========================================================
-    # 6. 数据列整理与安全导出
+    # ==========================================================
+    # 6. 生成全景交叉验证散点图 (sigma_y_m vs calculated sigma_r)
+    # ==========================================================
+    if has_yield_stress:
+        print("-" * 70)
+        print("📊 正在绘制屈服强度交叉验证全景拼图...")
+
+        # 动态计算拼图的行数和列数（例如 4 种 E 会画成 2x2，3 种 E 就是 2x2 留白一张）
+        n_cols = 2
+        n_rows = math.ceil(len(actual_e_cols) / 2)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
+
+        # 将子图矩阵展平以便循环遍历
+        if isinstance(axes, np.ndarray):
+            axes = axes.flatten()
+        else:
+            axes = [axes]  # 如果只有 1 个 E
+
+        for i, e_col in enumerate(actual_e_cols):
+            ax = axes[i]
+            y_col = f'Sigma_r_from_{e_col}'
+
+            # 剥离缺失值，防止画图报错
+            plot_df = df_merged[['sigma_y_m', y_col]].dropna()
+
+            if not plot_df.empty:
+                # 绘制实际数据的散点
+                ax.scatter(plot_df['sigma_y_m'], plot_df[y_col], color='purple', edgecolor='black', alpha=0.7, s=50,
+                           label='Calculated vs Reference')
+
+                # 获取数据范围以绘制完美的 y=x 参考线
+                min_val = min(plot_df['sigma_y_m'].min(), plot_df[y_col].min()) * 0.9
+                max_val = max(plot_df['sigma_y_m'].max(), plot_df[y_col].max()) * 1.1
+
+                ax.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.6, linewidth=2,
+                        label='y = x (Perfect Fit)')
+
+                # 图表装潢
+                ax.set_title(f'Using Modulus: {e_col}', fontsize=12, fontweight='bold')
+                ax.set_xlabel(r'Reference Yield Strength $\sigma_{y,m}$ (GPa)', fontsize=10)
+                ax.set_ylabel(r'Calculated $\sigma_r$ (GPa) ($n=0$)', fontsize=10)
+                ax.legend(loc='upper left')
+                ax.grid(True, linestyle=':', alpha=0.6)
+            else:
+                ax.set_title(f'No valid data for {e_col}')
+                ax.axis('off')
+
+        # 隐藏多余的空白子图 (如果是单数个图)
+        for j in range(i + 1, len(axes)):
+            axes[j].axis('off')
+
+        plt.tight_layout()
+        plt.savefig(plot_save_path, dpi=200, bbox_inches='tight')
+        plt.close()
+        print(f"✨ 全景对比图已生成: {plot_save_path}")
+
+    # ==========================================================
+    # 7. 数据列整理与安全导出
     # ==========================================================
     output_columns = ['Material', 'Stable_C_Coefficient']
+    if has_yield_stress:
+        output_columns.append('sigma_y_m')
+
     for e_col in actual_e_cols:
         output_columns.append(e_col)
         output_columns.append(f'Sigma_r_from_{e_col}')
@@ -186,7 +249,7 @@ def calculate_sigma_r_multi():
         df_final.to_csv(output_csv_path, index=False, float_format="%.4f", encoding='utf-8-sig')
         print("-" * 70)
         print(f"🎉 全部并行计算完成！")
-        print(f"📁 对比结果已安全存入专属档案库:\n   {output_csv_path}")
+        print(f"📁 对比结果与图像已安全存入专属档案库:\n   {run_output_dir}")
         print("=" * 70)
     except PermissionError:
         print("【错误】导出失败！CSV 文件正在被占用，请关闭 Excel 后再试。")
@@ -195,4 +258,4 @@ def calculate_sigma_r_multi():
 
 
 if __name__ == "__main__":
-    calculate_sigma_r_multi()
+    calculate_yield_stress()
