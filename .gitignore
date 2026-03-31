@@ -1,10 +1,14 @@
-# 忽略所有运行输出结果 (图片、TXT报告、CSV结果)
-output/
-
-# 忽略 Python 缓存文件
-__pycache__/
-*.pyc
-
-# 忽略本地 IDE 配置
-.vscode/
+# 忽略 PyCharm 的本地配置文件
 .idea/
+
+# 忽略 Python 生成的缓存文件
+__pycache__/
+*.py[cod]
+
+# 忽略海量的输出结果（图片和自动生成的表格）
+# 但保留 output 文件夹本身结构（如果需要的话）
+output/yao_C/*
+output/yao_sigma_r/*
+
+# 如果您不想把原始数据开源，也可以把 data 忽略
+data/Pd_Fn/*
