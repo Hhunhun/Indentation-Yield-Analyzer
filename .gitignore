@@ -9,6 +9,8 @@ __pycache__/
 # 但保留 output 文件夹本身结构（如果需要的话）
 output/yao_C/*
 output/yao_sigma_r/*
+output/dao_sigma_r/*
+output/xu_sigma_r/*
 
 # 如果您不想把原始数据开源，也可以把 data 忽略
 data/Pd_Fn/*
