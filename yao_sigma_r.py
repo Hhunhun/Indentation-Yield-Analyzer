@@ -17,10 +17,10 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # 默认填入的是论文中 60° 压头的值。
 # 【强烈建议】：请务必查阅您的 image_4adf00.png 截图，
 # 将下面四个常数修改为 Berkovich 压头（等效 70.3°）对应的值！
-C1 = 0.0646  # 对应 ln 的 3 次方系数
-C2 = -2.210  # 对应 ln 的 2 次方系数
-C3 = 21.589  # 对应 ln 的 1 次方系数
-C4 = -28.571  # 常数项
+C1 = -1.131  # 对应 ln 的 3 次方系数
+C2 = 13.635  # 对应 ln 的 2 次方系数
+C3 = -30.594  # 对应 ln 的 1 次方系数
+C4 = 29.267  # 常数项
 
 # 【新增配置】：在这里填入 knowndata.csv 中 4 种 E 的准确列名
 E_COLUMNS_TO_PROCESS = ['Er', 'Er_O&P', 'E*', 'E*_O&P']
